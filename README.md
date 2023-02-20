@@ -4,7 +4,7 @@ An introduction to assembly on Apple Silicon Macs.
 
 ## Introduction
 
-In this repository, I will code along with the book [Programming with 64-Bit ARM Assembly Language](https://www.dpbolvw.net/click-100586055-13091548?url=https%3A%2F%2Flink.springer.com%2Fbook%2F10.1007%2F978-1-4842-5881-1), adjusting all sample code for Apple's ARM64 line of computers. While Apple's marketing material seems to avoid a name for the platform and talks only about the M1 processor, the developer documentation uses the term "Apple Silicon". I will use this term in the following.
+In this repository, I will code along with the book [Programming with 64-Bit ARM Assembly Language](https://link.springer.com/book/10.1007/978-1-4842-5881-1?source=shoppingads&locale=de&cjsku=9781484258804), adjusting all sample code for Apple's ARM64 line of computers. While Apple's marketing material seems to avoid a name for the platform and talks only about the M1 processor, the developer documentation uses the term "Apple Silicon". I will use this term in the following.
 
 The original sourcecode can be found [here](https://github.com/Apress/programming-with-64-bit-ARM-assembly-language).
 
@@ -14,7 +14,7 @@ While I pretty much assume that people who made it here meet most if not all req
 
 * You need [Xcode 12.2](https://developer.apple.com/xcode/) or later, and to make things easier, the command line tools should be installed. This ensures that the tools are found in default locations (namely `/usr/bin`). If you are not sure that the tools are installed, check _Preferences → Locations_ in Xcode or run `xcode-select --install`.
 
-* All application samples also require [macOS Big Sur](https://developer.apple.com/macos/), [iOS 14](https://developer.apple.com/ios/) or their respective watchOS or tvOS equivalents. Especially for the later three systems it is not a necessity per-se (neither is Xcode 12.2), but it makes things a lot simpler.
+* All application samples also require at least [macOS Big Sur](https://developer.apple.com/macos/), [iOS 14](https://developer.apple.com/ios/) or their respective watchOS or tvOS equivalents. Especially for the later three systems it is not a necessity per-se (neither is Xcode 12.2), but it makes things a lot simpler.
 
 * Finally, while all samples can be adjusted to work on the iPhone and all other of Apple's ARM64 devices, for best results you should have access to an [Apple Silicon Mac](https://www.apple.com/newsroom/2020/11/introducing-the-next-generation-of-mac/), formerly known as the MWMNSA, the _Machine We Must Not Speak About_.
 
@@ -64,7 +64,7 @@ Thread model: posix
 InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
 ```
 
-### Hello World, Listing 1-1
+### Hello World
 
 If you are reading this, I assume you already knew that the macOS Terminal can be found in _Applications → Utilities → Terminal.app_. But if you didn't I feel honored to tell you and I wish you lots of fun on this journey! Don't be afraid to ask questions.
 
@@ -89,13 +89,17 @@ We know the `-o` switch, let's examine the others:
 * `-e _start`: Darwin expects an entrypoint `_main`. In order to keep the sample both as close as possible to the book, and to allow it's use within the C-Sample from _Chapter 3_, I opted to keep `_start` and tell the linker that this is the entry point we want to use
 * `-arch arm64` for good measure, let's throw in the option to cross-compile this from an Intel Mac. You can leave this off when running on Apple Silicon.
 
+### Reverse Engineering Our Program
+
+While the objdump command line programm works just as well on Darwin and produces the expected output, also try the “--macho” (or “-m”) option, which causes objdump to use the Mach-O specific object file parser.
+
 ## Chapter 2: Loading and Adding
 
 The changes from [Chapter 1](https://github.com/below/HelloSilicon#chapter-1) (makefile, alignment, system calls) have to be applied.
 
 ### Register and Shift
 
-The Clang assembler does not understand `MOV X1, X2, LSL #1`, instead `LSL X1, X2, #1` (etc) is used. After all, both are just aliasses for the instruction `ORR X1, XZR, X2, LSL #1`.
+The gcc assembler accepts `MOV X1, X2, LSL #1`, which is not defined by the [ARM Compiler User Guide](https://developer.arm.com/documentation/dui0801/g/A64-General-Instructions/MOV--register-?lang=en), instead `LSL X1, X2, #1` (etc) is used. After all, both are just aliasses for the instruction `ORR X1, XZR, X2, LSL #1`.
 
 ### Register and Extension
 
@@ -158,13 +162,15 @@ As an exercise, I have added code to find the default Xcode toolchain on macOS. 
 
 That said, while it is possible to build an iOS executable with the command line it is not a trivial process. So for building apps I will stick to Xcode.
 
-### Listing 3-7
+### Apple Xcode
 
 As [Chapter 10](https://github.com/below/HelloSilicon#chapter-10) focusses on building an app that will run on iOS, I have chosen to simply create a Command Line Tool here which is now using the same `HelloWorld.s` file.
 
-## Chapter 4: Controlling Programm Flow
+Be aware that the function numbers are not only different, but on Darwin, they are considered private and subject to change.
 
-Besides the common changes, we face a new issue which is described in the book in Chapter 5: Darwin does not like `LSR X1, =symbol`, it will produce the error `ld: Absolute addressing not allowed in arm64 code`. If we use `ASR X1, symbol`, as suggested in Chapter 3 of the book, our data has to be in the read-only `.text` section. In this sample however, we want writable data.
+## Chapter 4: Controlling Program Flow
+
+Besides the common changes, we face a new issue which is described in the book in Chapter 5: Darwin does not like `LDR X1, =symbol`, it will produce the error `ld: Absolute addressing not allowed in arm64 code`. If we use `ASR X1, symbol`, as suggested in Chapter 3 of the book, our data has to be in the read-only `.text` section. In this sample however, we want writable data.
 
 The [Apple Documentation](https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/MachOTopics/1-Articles/x86_64_code.html#//apple_ref/doc/uid/TP40005044-SW1) tells us that on Darwin:
 > All large or possibly nonlocal data is accessed indirectly through a global offset table (GOT) entry. The GOT entry is accessed directly using RIP-relative addressing.
@@ -210,6 +216,8 @@ As we learned in Chapter 5, all assembler directives (like `.equ`) must be in lo
 
 ## Chapter 7: Linux Operating System Services
 `asm/unistd.h` does not exist in the Apple SDKs, instead `sys/syscalls.h` can be used.
+
+**Warning:** Be aware that syscall numbers in Darwin are officially considered private and subject to change. They are presented here for educational purposes only.
 
 It is also important to notice that while the calls and definitions look similar, Linux and Darwin are not the same: `AT_FDCWD` is -100 on Linux, but must be -2 on Darwin.
 
